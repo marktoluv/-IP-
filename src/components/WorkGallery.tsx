@@ -12,6 +12,7 @@ type Filter = 'all' | WorkCategory
 export function WorkGallery({ lang, content, works }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const [selected, setSelected] = useState<Work | null>(null)
+  const [videoFailed, setVideoFailed] = useState(false)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const visibleWorks = filter === 'all' ? works : works.filter((work) => work.category === filter)
   const filters: { id: Filter; label: string }[] = [
@@ -57,7 +58,7 @@ export function WorkGallery({ lang, content, works }: Props) {
             <button
               type="button"
               key={work.id}
-              onClick={() => setSelected(work)}
+              onClick={() => { setVideoFailed(false); setSelected(work) }}
               className="work-card group relative mb-5 block w-full break-inside-avoid overflow-hidden bg-[#151719] text-left"
               aria-label={`${content.viewWork}: ${work.title[lang]}`}
             >
@@ -90,9 +91,10 @@ export function WorkGallery({ lang, content, works }: Props) {
         {selected && (
           <div>
             <div className="relative">
-              {selected.video ? (
-                <video key={selected.id} controls playsInline poster={selected.image} className="max-h-[60vh] w-full bg-black object-contain">
+              {selected.video && !videoFailed ? (
+                <video key={selected.id} controls playsInline poster={selected.image} onError={() => setVideoFailed(true)} className="max-h-[60vh] w-full bg-black object-contain">
                   <source src={selected.video} type="video/webm" />
+                  {selected.videoMp4 && <source src={selected.videoMp4} type="video/mp4" />}
                   <img src={selected.image} alt={selected.title[lang]} />
                 </video>
               ) : (
@@ -104,6 +106,7 @@ export function WorkGallery({ lang, content, works }: Props) {
               <p className="eyebrow mb-3">{selected.subtitle[lang]}</p>
               <h3 className="font-display text-3xl md:text-4xl">{selected.title[lang]}</h3>
               <p className="mt-5 max-w-2xl leading-7 text-[#bcb9b3]">{selected.description[lang]}</p>
+              {videoFailed && <p role="status" className="mt-4 text-sm text-[#d8bd90]">{lang === 'zh' ? '此浏览器暂时无法播放短片，已显示作品封面。' : 'This browser cannot play the film. The work poster is shown instead.'}</p>}
             </div>
           </div>
         )}

@@ -9,6 +9,7 @@ export type Work = {
   category: WorkCategory;
   image: string;
   video?: string;
+  videoMp4?: string;
   title: LocalizedText;
   subtitle: LocalizedText;
   description: LocalizedText;
@@ -467,11 +468,12 @@ export const works: Work[] = [
     category: 'motion',
     image: '/media/motion-01.webp',
     video: '/media/eira-motion.webm',
+    videoMp4: '/media/eira-motion.mp4',
     title: { zh: '记忆有形', en: 'Memory in Motion' },
     subtitle: { zh: '动态影像 · 2026', en: 'Motion study · 2026' },
     description: {
-      zh: '亦岚在呼吸、回望与微小的动作中，让一段记忆逐渐显形。',
-      en: 'Through breath, a glance and subtle movement, EIRA lets a memory take shape.',
+      zh: '丝绸、光线与空间在缓慢的镜头移动中交叠，让一段记忆逐渐显形。',
+      en: 'Silk, light and space overlap through slow camera movement as a memory takes shape.',
     },
   },
   {
