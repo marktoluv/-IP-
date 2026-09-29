@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { Lang, SiteCopy } from '../content/site'
 
@@ -10,6 +10,26 @@ type Props = {
 
 export function SiteHeader({ lang, content, onToggleLanguage }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!window.matchMedia) return
+    const desktop = window.matchMedia('(min-width: 1024px)')
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false) }
+    desktop.addEventListener('change', closeOnDesktop)
+    return () => desktop.removeEventListener('change', closeOnDesktop)
+  }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setMenuOpen(false)
+      menuButtonRef.current?.focus()
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [menuOpen])
   const links = [
     { to: '/', label: content.nav.home },
     { to: '/#profile', label: content.nav.profile },
@@ -45,6 +65,7 @@ export function SiteHeader({ lang, content, onToggleLanguage }: Props) {
         </div>
 
         <button
+          ref={menuButtonRef}
           type="button"
           className="flex h-10 w-10 items-center justify-center border border-white/20 text-[#eeeae2] lg:hidden"
           aria-label={menuOpen ? content.nav.closeMenu : content.nav.openMenu}

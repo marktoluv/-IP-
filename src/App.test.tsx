@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import App from './App'
 import { copy } from './content/site'
 
-function renderApp() {
+function renderApp(path = '/') {
   return render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[path]}>
       <App />
     </MemoryRouter>,
   )
@@ -75,6 +75,73 @@ describe('EIRA visitor journeys', () => {
     expect(screen.getAllByRole('button', { name: /^查看作品:/ }).length).toBe(6)
   })
 
+  it('opens a motion work with both video formats and closes its detail view', async () => {
+    const user = userEvent.setup()
+    const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal')
+    const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close')
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+      configurable: true,
+      value(this: HTMLDialogElement) { this.open = true },
+    })
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+      configurable: true,
+      value(this: HTMLDialogElement) { this.open = false; this.dispatchEvent(new Event('close')) },
+    })
+
+    try {
+      renderApp()
+      await user.click(screen.getByRole('button', { name: '查看作品: 记忆有形' }))
+      const dialog = screen.getByRole('dialog', { name: '记忆有形' })
+      const sources = Array.from(dialog.querySelectorAll('video source')).map((source) => source.getAttribute('src'))
+      expect(sources).toEqual(['/media/eira-motion.webm', '/media/eira-motion.mp4'])
+
+      await user.click(within(dialog).getByRole('button', { name: '关闭作品详情' }))
+      expect(screen.queryByRole('dialog', { name: '记忆有形' })).toBeNull()
+      expect(dialog.querySelector('video')).toBeNull()
+    } finally {
+      if (originalShowModal) Object.defineProperty(HTMLDialogElement.prototype, 'showModal', originalShowModal)
+      else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+      if (originalClose) Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose)
+      else Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
+    }
+  })
+
+  it('closes the mobile menu with Escape and returns focus to its button', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    const menuButton = within(screen.getByRole('banner')).getByRole('button', { name: copy.zh.nav.openMenu })
+    await user.click(menuButton)
+    expect(menuButton.getAttribute('aria-expanded')).toBe('true')
+    expect(document.getElementById('mobile-navigation')).toBeTruthy()
+
+    await user.keyboard('{Escape}')
+    expect(menuButton.getAttribute('aria-expanded')).toBe('false')
+    expect(document.getElementById('mobile-navigation')).toBeNull()
+    expect(document.activeElement).toBe(menuButton)
+  })
+
+  it('resets an open mobile menu when the layout changes to desktop', async () => {
+    const user = userEvent.setup()
+    let onDesktopChange: (() => void) | undefined
+    const desktop = {
+      matches: false,
+      addEventListener: (_event: string, listener: () => void) => { onDesktopChange = listener },
+      removeEventListener: vi.fn(),
+    }
+    vi.stubGlobal('matchMedia', (query: string) => query === '(min-width: 1024px)'
+      ? desktop
+      : { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+
+    renderApp()
+    const menuButton = within(screen.getByRole('banner')).getByRole('button', { name: copy.zh.nav.openMenu })
+    await user.click(menuButton)
+    expect(document.getElementById('mobile-navigation')).toBeTruthy()
+
+    act(() => { desktop.matches = true; onDesktopChange?.() })
+    expect(menuButton.getAttribute('aria-expanded')).toBe('false')
+    expect(document.getElementById('mobile-navigation')).toBeNull()
+  })
+
   it('navigates from the home page to the contact page', async () => {
     const user = userEvent.setup()
     renderApp()
@@ -83,6 +150,16 @@ describe('EIRA visitor journeys', () => {
     expect(screen.getByRole('heading', { level: 1, name: copy.zh.contact.title })).toBeTruthy()
     expect(screen.getByRole('form', { name: copy.zh.contact.title })).toBeTruthy()
     expect(screen.queryByRole('heading', { level: 2, name: copy.zh.hero.title })).toBeNull()
+  })
+
+  it('renders direct contact and unknown routes', () => {
+    const contact = renderApp('/contact')
+    expect(screen.getByRole('heading', { level: 1, name: copy.zh.contact.title })).toBeTruthy()
+    contact.unmount()
+
+    renderApp('/missing-page')
+    expect(screen.getByRole('heading', { level: 1, name: copy.zh.notFound.title })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /返回首页/ })).toBeTruthy()
   })
 
   it('validates a demo enquiry locally and shows feedback without a network request', async () => {
